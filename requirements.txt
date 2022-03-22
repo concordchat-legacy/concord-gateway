@@ -1,0 +1,7 @@
+websockets
+orjson
+uvloop
+python-dotenv
+ulid-py
+motor
+pymongo[srv]
