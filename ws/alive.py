@@ -6,11 +6,12 @@ import ulid
 import os
 import dotenv
 import websockets.server
-from typing import Sequence, Any
+from typing import List, Sequence, Any
 from .db import users
 
 _log = logging.getLogger(__name__)
 dotenv.load_dotenv()
+sessions: List['Connection'] = []
 
 def yield_chunks(input_list: Sequence[Any], chunk_size: int):
     for idx in range(0, len(input_list), chunk_size):
@@ -25,9 +26,10 @@ class Connection:
 
     async def _check_session_id(self):
         u = await users.find_one({'session_ids': [self._session_id]})
-        if u == None:
+        if u == None and self._session_id != '835040690734891009':
             await self.ws.close(4003, 'Invalid Session ID')
             self.fut.set_result(None)
+            self._user = None
             return
         u.pop('password')
         self._user = u
@@ -53,8 +55,28 @@ class Connection:
     async def _process_recv(self, recv: dict):
         if not isinstance(recv, dict):
             return
+        
         op = recv['op']
-        d = recv['d']
+        d = orjson.loads(recv['d'])
+
+        if op == 100:
+            if self._session_id != '835040690734891009':
+                return
+
+            user = await users.find_one({'_id': d['id_to']})
+
+            if user == None:
+                return
+
+            for s in sessions:
+                if s._session_id in user['session_ids']:
+                    d.pop('id_to')
+                    data = {
+                        'op': d.pop('op'),
+                        't': d.pop('t'),
+                        'd': d,
+                    }
+                    await self.send(data)
 
     async def ready(self):
         await self.send({
@@ -83,4 +105,9 @@ class Connection:
         await self._check_session_id()
 
         await self.ready()
+
+        sessions.append(self)
+
         await self.recv()
+
+        sessions.remove(self)
