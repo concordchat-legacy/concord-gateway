@@ -110,7 +110,7 @@ def to_dict(model: models.Model) -> dict:
     for name, value in initial:
         if isinstance(value, usertype.UserType) or isinstance(value, models.Model) or isinstance(value, columns.UserDefinedType):
             ret[name] = dict(value.items())
-        if name == 'id':
+        if name == 'id' or name.endswith('_id'):
             ret[name] = str(value)
 
     return ret

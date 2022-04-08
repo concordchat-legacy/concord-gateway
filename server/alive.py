@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import List, Sequence, Any, Union
 from .db import User, Presence, Guild, Member, Activity, to_dict
 from .intents import Intents
+from .redis_pubsub import manager
 
 _log = logging.getLogger(__name__)
 dotenv.load_dotenv()
@@ -128,8 +129,6 @@ class Connection:
         if self.presence.status == 'offline':
             return
 
-        from .redis_pubsub import manager
-
         self.presence.update(status='offline')
 
         model = to_dict(self.presence)
@@ -146,11 +145,9 @@ class Connection:
             't': 'READY',
             'd': self._user,
         })
-        # since "manager" is a global variable, importing it outside might error out.
-        from .redis_pubsub import manager
 
         try:
-            query: models.Model  = Presence.get(Presence.id == self._user['id'])
+            query: Presence = Presence.get(Presence.id == self._user['id'])
         except(cassandra.cqlengine.query.DoesNotExist):
             p: Presence = Presence.create(
                 id=self._user['id'],
