@@ -40,7 +40,7 @@ class Connection:
 
     async def _check_session_id(self):
         try:
-            objs: cassandra.cqlengine.query.ModelQuerySet = User.objects().allow_filtering()
+            objs: User = User.objects().allow_filtering()
             u = objs.get(session_ids__contains=self._session_id)
         except(cassandra.cqlengine.query.DoesNotExist):
             await self.ws.close(4003, 'Invalid Session ID')
@@ -125,6 +125,9 @@ class Connection:
         return data
     
     async def cleanup_presence(self):
+        if self.presence.status == 'offline':
+            return
+
         from .redis_pubsub import manager
 
         self.presence.update(status='offline')
@@ -186,7 +189,7 @@ class Connection:
             await manager.publish('GUILD_EVENTS', orjson.dumps(d).decode())
 
             # saves a db request, although this *might* somewhat increase ram
-            self.presence = query
+            self.presence: Presence = query
 
             await asyncio.sleep(0.1)
 
