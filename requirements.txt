@@ -1,7 +1,5 @@
-websockets
 orjson
 uvloop
+aioredis[hiredis]
+websockets
 python-dotenv
-ulid-py
-motor
-pymongo[srv]
