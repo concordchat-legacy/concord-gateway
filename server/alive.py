@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import random
 import sys
 import zlib
 import orjson
@@ -10,7 +9,6 @@ import dotenv
 import cassandra.cqlengine.query
 import websockets.server
 import websockets.exceptions
-from cassandra.cqlengine import models
 from datetime import datetime, timezone
 from typing import List, Sequence, Any, Union
 from .db import User, Presence, Guild, Member, Activity, to_dict
@@ -21,16 +19,23 @@ _log = logging.getLogger(__name__)
 dotenv.load_dotenv()
 sessions: List['Connection'] = []
 
+
 def yield_chunks(input_list: Sequence[Any], chunk_size: int):
     for idx in range(0, len(input_list), chunk_size):
         yield input_list[idx : idx + chunk_size]
 
+
 class Connection:
-    def __init__(self, ws: websockets.server.WebSocketServerProtocol, compress: str, fut: asyncio.Future):
+    def __init__(
+        self,
+        ws: websockets.server.WebSocketServerProtocol,
+        compress: str,
+        fut: asyncio.Future,
+    ):
         self.ws = ws
         self.compress = compress
         self.fut = fut
-        self.zctx = zlib.compressobj() # could be more optimization here.
+        self.zctx = zlib.compressobj()  # could be more optimization here.
         self.intents: Intents = None
         self.hb_fut: asyncio.Future = None
         self.joined_guilds: List[int] = []
@@ -43,7 +48,7 @@ class Connection:
         try:
             objs: User = User.objects().allow_filtering()
             u = objs.get(session_ids__contains=self._session_id)
-        except(cassandra.cqlengine.query.DoesNotExist):
+        except (cassandra.cqlengine.query.DoesNotExist):
             await self.ws.close(4003, 'Invalid Session ID')
             self.fut.set_result(None)
             self._user = None
@@ -69,9 +74,9 @@ class Connection:
                 data.pop('member_id')
                 data.pop('presence')
                 await self.send({'t': event_name, 'd': data})
-    
+
     async def send_guilds(self):
-        objs = Member.objects(Member.id == self._user['id']).allow_filtering()
+        objs = Member.objects(Member.id == self._user['id'])
 
         guilds: List[dict] = []
 
@@ -84,6 +89,7 @@ class Connection:
                 await self.send(guild)
 
         del guilds
+        del objs
 
     async def _send_chunks(self, d: bytes, size: int):
         _log.debug(f'conn:{self.ws.id.__str__()}:{d}, {size}')
@@ -99,16 +105,20 @@ class Connection:
 
         # NOTE: Maybe raise the amount of chunks?
         await self._send_chunks(d, 1024)
-    
+
     async def send(self, d: dict):
-        d['_trace'] = [f'scales-{os.getenv("server", "asia1")}-gateway-{str(os.getenv("mode", "dev"))}-' + str(self.ws.port)]
+        d['_trace'] = [
+            f'concord-{os.getenv("cluster", "asia-east1")}-gateway-{str(os.getenv("mode", "dev"))}-'
+            + os.getenv('node', '0')
+        ]
         data = orjson.dumps(d)
-        await self._zlib_stream_send(data)
+        # create a separate task to let the node do other stuff aswell
+        asyncio.create_task(self._zlib_stream_send(data))
 
     async def _process_recv(self, recv: dict):
         if not isinstance(recv, dict):
             return
-        
+
         op = int(recv['op'])
         d: Union[int, dict] = recv['d']
 
@@ -124,7 +134,7 @@ class Connection:
             data[k] = v
 
         return data
-    
+
     async def cleanup_presence(self):
         if self.presence.status == 'offline':
             return
@@ -135,20 +145,24 @@ class Connection:
 
         model.pop('no_online')
 
-        d = self.make_event_ready(name='PRESENCE_UPDATE', d=model, member_id=self.presence.id, presence=True)
+        d = self.make_event_ready(
+            name='PRESENCE_UPDATE', d=model, member_id=self.presence.id, presence=True
+        )
 
         await manager.publish('GUILD_EVENTS', orjson.dumps(d).decode())
 
     async def ready(self):
-        await self.send({
-            'op': 0,
-            't': 'READY',
-            'd': self._user,
-        })
+        await self.send(
+            {
+                'op': 0,
+                't': 'READY',
+                'd': self._user,
+            }
+        )
 
         try:
             query: Presence = Presence.get(Presence.id == self._user['id'])
-        except(cassandra.cqlengine.query.DoesNotExist):
+        except (cassandra.cqlengine.query.DoesNotExist):
             p: Presence = Presence.create(
                 id=self._user['id'],
                 since=None,
@@ -157,15 +171,17 @@ class Connection:
                     type=0,
                     created_at=datetime.now(timezone.utc),
                     emoji=None,
-                    buttons=None
+                    buttons=None,
                 ),
                 status='online',
-                afk=False
+                afk=False,
             )
 
             redis_p = to_dict(p)
 
-            d = self.make_event_ready(name='PRESENCE_UPDATE', d=redis_p, member_id=p.id, presence=True)
+            d = self.make_event_ready(
+                name='PRESENCE_UPDATE', d=redis_p, member_id=p.id, presence=True
+            )
 
             # NOTE: Not sure if the event will be given to the port since it published it,
             # although it should
@@ -178,10 +194,12 @@ class Connection:
                 return
             else:
                 query.update(status='online')
-            
+
             query2.pop('no_online')
 
-            d = self.make_event_ready(name='PRESENCE_UPDATE', d=query2, member_id=query.id, presence=True)
+            d = self.make_event_ready(
+                name='PRESENCE_UPDATE', d=query2, member_id=query.id, presence=True
+            )
 
             await manager.publish('GUILD_EVENTS', orjson.dumps(d).decode())
 
@@ -191,7 +209,7 @@ class Connection:
             await asyncio.sleep(0.1)
 
             await self.send(d)
-            
+
         await self.send_guilds()
 
     async def recv(self):
@@ -227,7 +245,7 @@ class Connection:
             sessions.remove(self)
         except Exception as exc:
             print(exc, file=sys.stderr)
-            sessions.remove(self) # remove the session before changing presence
+            sessions.remove(self)  # remove the session before changing presence
             await self.cleanup_presence()
             self.fut.set_result(None)
             del self

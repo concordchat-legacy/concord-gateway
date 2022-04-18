@@ -1,5 +1,4 @@
 import asyncio
-import sys
 import aioredis as redis
 import os
 import dotenv
@@ -14,33 +13,43 @@ pool = redis.ConnectionPool(
     port=os.getenv('redis_port'),
     password=os.getenv('redis_password'),
     db=int(os.getenv('redis_db', 0)),
-    retry_on_timeout=True
+    retry_on_timeout=True,
 )
 if os.name != 'nt':
     pool.connection_class = redis.UnixDomainSocketConnection
 manager = redis.Redis(connection_pool=pool)
 pubsub = manager.pubsub()
 
-def _send_guild_event(d: dict):
-    if isinstance(d['data'], bytes):
-        c = orjson.loads(d['data'])
-        if c.get('presence', False):
-            ms = Member.objects(Member.id == c['member_id']).allow_filtering()
-            guild_ids = []
+# TODO: Complete
+def handle_event(d: dict):
+    try:
+        d = orjson.loads(d['data'])
+    except KeyError:
+        return
 
-            for m in ms:
-                guild_ids.append(m.guild_id)
+    if d['type'] == 1:
+        for sid in sessions:
+            if sid._user['id'] == d['data']['user_id']:
+                d['data']['t'] = f'USER_{str(d["name"])}'
+                asyncio.create_task(sid.send(d['data']))
 
+    elif d['type'] == 2:
+        if d.get('user_id'):
             for sid in sessions:
-                for id in guild_ids:
-                    if id in sid or id == c['d']['id']:
-                        c.pop('member_id')
-                        c.pop('presence')
-                        asyncio.create_task(sid.send(c))
-                        break
+                if sid._user['id'] == d['data']['user_id']:
+                    d['data']['t'] = f'GUILD_CREATE'
+                    asyncio.create_task(sid.send(d['data']))
+                    sid.joined_guilds.append(d['guild_id'])
+        else:
+            for sid in sessions:
+                if d['guild_id'] in sid.joined_guilds:
+                    d['data']['t'] = f'GUILD_{str(d["name"])}'
+                    asyncio.create_task(sid.send(d['data']))
 
-def _send_user_event(*args, **kwargs):
-    pass
+    elif d['type'] == 3:
+        if d.get('guild_id'):
+            channel = ...
+
 
 async def start():
-    await pubsub.subscribe(GUILD_EVENTS=_send_guild_event, USER_EVENTS=_send_user_event)
+    await pubsub.subscribe(gateway=handle_event)

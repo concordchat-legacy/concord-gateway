@@ -1,7 +1,9 @@
 import functools
 
+
 def _has_intent(v: int, i: int):
     return True if v & i else False
+
 
 class Intents:
     def __init__(self, session_intents: int):

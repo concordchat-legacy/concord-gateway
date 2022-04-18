@@ -3,6 +3,7 @@ import asyncio
 from websockets import server
 from .alive import Connection
 
+
 async def ws_handler(ws: server.WebSocketServerProtocol, url):
     while True:
         d = await ws.recv()
@@ -12,7 +13,7 @@ async def ws_handler(ws: server.WebSocketServerProtocol, url):
 
     try:
         compress = args['compress'][0]
-    except(IndexError, KeyError):
+    except (IndexError, KeyError):
         compress = 'zlib-stream'
 
     if compress not in ('zlib-stream', 'zstd-stream'):
