@@ -11,4 +11,6 @@ class Intents:
         self.direct_messages = has(1 << 0)
         self.presences = has(1 << 1)
         self.guilds = has(1 << 2)
-        self.guild_messages = has(1 << 3)
+        self.guild_channels = has(1 << 3)
+        self.guild_members = has(1 << 4)
+        self.guild_messages = has(1 << 5)

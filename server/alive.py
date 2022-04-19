@@ -115,16 +115,6 @@ class Connection:
         # create a separate task to let the node do other stuff aswell
         asyncio.create_task(self._zlib_stream_send(data))
 
-    async def _process_recv(self, recv: dict):
-        if not isinstance(recv, dict):
-            return
-
-        op = int(recv['op'])
-        d: Union[int, dict] = recv['d']
-
-        if op == 1:
-            ...
-
     def make_event_ready(self, *, name: str, d: dict, **extra):
         data = {}
 
@@ -212,11 +202,6 @@ class Connection:
 
         await self.send_guilds()
 
-    async def recv(self):
-        while not self.ws.closed:
-            d = await self.ws.recv()
-            await self._process_recv(orjson.loads(d))
-
     async def run(self, d: dict):
         data = orjson.loads(d)
 
@@ -239,10 +224,6 @@ class Connection:
             await self._check_session_id()
 
             await self.ready()
-
-            await self.recv()
-
-            sessions.remove(self)
         except Exception as exc:
             print(exc, file=sys.stderr)
             sessions.remove(self)  # remove the session before changing presence

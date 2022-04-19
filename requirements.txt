@@ -1,6 +1,5 @@
 orjson
 uvloop
-scales
 websockets
 python-dotenv
 aioredis[hiredis]
