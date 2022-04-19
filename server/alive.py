@@ -10,10 +10,12 @@ import cassandra.cqlengine.query
 import websockets.server
 import websockets.exceptions
 from datetime import datetime, timezone
-from typing import List, Sequence, Any, Union
-from .db import User, Presence, Guild, Member, Activity, to_dict
+from typing import List, Sequence, Any
+from cassandra.cqlengine.connection import get_session
+from .db import Presence, Activity, to_dict
 from .intents import Intents
 from .redis_pubsub import manager
+from .tokens import verify_token
 
 _log = logging.getLogger(__name__)
 dotenv.load_dotenv()
@@ -46,42 +48,22 @@ class Connection:
 
     async def _check_session_id(self):
         try:
-            objs: User = User.objects().allow_filtering()
-            u = objs.get(session_ids__contains=self._session_id)
-        except (cassandra.cqlengine.query.DoesNotExist):
+            u = verify_token(self._session_id)
+        except (ValueError):
             await self.ws.close(4003, 'Invalid Session ID')
             self.fut.set_result(None)
             self._user = None
             return
-        u = to_dict(u)
         u.pop('password')
         self._user = u
 
-    async def send_from_intents(self, event_name: str, data: dict):
-        if event_name.startswith('DIRECT_MESSAGE'):
-            if self.intents.direct_messages:
-                await self.send({'t': event_name, 'd': data})
-        elif event_name.startswith('MESSAGE'):
-            if self.intents.guild_messages:
-                await self.send({'t': event_name, 'd': data})
-        elif event_name.startswith('GUILD_') and 'MEMBER' not in event_name:
-            if self.intents.guilds:
-                # TODO: Limit to Guild
-                await self.send({'t': event_name, 'd': data})
-        elif event_name.startswith('PRESENCE'):
-            if self.intents.presences:
-                # TODO: Limit to Guild
-                data.pop('member_id')
-                data.pop('presence')
-                await self.send({'t': event_name, 'd': data})
-
     async def send_guilds(self):
-        objs = Member.objects(Member.id == self._user['id'])
+        objs = get_session().execute('SELECT * FROM members WHERE id = %s;', self._user['id'])
 
         guilds: List[dict] = []
 
         for obj in objs:
-            guilds.append(to_dict(Guild.get(id=obj['guild_id'])))
+            guilds.append(to_dict(get_session().execute('SELECT * FROM guilds WHERE id = %s;', obj['guild_id'])))
 
         for guild in guilds:
             self.joined_guilds.append(guild['id'])
