@@ -13,7 +13,7 @@ auth_provider = PlainTextAuthProvider(
 def connect():
     try:
         if os.getenv('safe', 'false') == 'true':
-            cloud = {'secure_connect_bundle': os.getcwd() + '\\server\\static\\bundle.zip'}
+            cloud = {'secure_connect_bundle': os.getcwd() + r'/server/static/bundle.zip'}
             connection.setup(
                 [],
                 'concord',
