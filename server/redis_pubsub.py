@@ -14,8 +14,6 @@ pool = redis.ConnectionPool(
     db=int(os.getenv('redis_db', 0)),
     retry_on_timeout=True,
 )
-if os.name != 'nt':
-    pool.connection_class = redis.UnixDomainSocketConnection # type: ignore
 manager = redis.Redis(connection_pool=pool)
 pubsub = manager.pubsub()
 
