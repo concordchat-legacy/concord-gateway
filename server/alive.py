@@ -1,4 +1,5 @@
 import asyncio
+import aioredis as redis
 import logging
 import sys
 import zlib
@@ -14,12 +15,23 @@ from typing import List, Sequence, Any
 from cassandra.cqlengine.connection import get_session
 from .db import Presence, Activity, to_dict
 from .intents import Intents
-from .redis_pubsub import manager
 from .tokens import verify_token
 
 _log = logging.getLogger(__name__)
 dotenv.load_dotenv()
 sessions: List['Connection'] = []
+
+pool = redis.ConnectionPool(
+    host=os.getenv('redis_uri'),
+    port=os.getenv('redis_port'),
+    password=os.getenv('redis_password'),
+    db=int(os.getenv('redis_db', 0)),
+    retry_on_timeout=True,
+)
+if os.name != 'nt':
+    pool.connection_class = redis.UnixDomainSocketConnection # type: ignore
+manager = redis.Redis(connection_pool=pool)
+pubsub = manager.pubsub()
 
 
 def yield_chunks(input_list: Sequence[Any], chunk_size: int):
