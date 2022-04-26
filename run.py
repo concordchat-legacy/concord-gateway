@@ -28,24 +28,14 @@ async def process_request(path, head):
 
 
 async def startup():
-    if os.name != 'nt':
-        await websockets.server.unix_serve(
-            ws_handler=ws_handler,
-            host='0.0.0.0',
-            port=int(os.getenv('port', 20699)),
-            ping_interval=4,
-            ping_timeout=45,
-            process_request=process_request,
-        )
-    else:
-        await websockets.server.serve(
-            ws_handler=ws_handler,
-            host='0.0.0.0',
-            port=int(os.getenv('port', 20699)),
-            ping_interval=4,
-            ping_timeout=45,
-            process_request=process_request,
-        )
+    await websockets.server.serve(
+        ws_handler=ws_handler,
+        host='0.0.0.0',
+        port=int(os.getenv('port', 20699)),
+        ping_interval=4,
+        ping_timeout=45,
+        process_request=process_request,
+    )
     await start()
     print('Connected to redis, now connecting to cassandra', file=sys.stderr)
     connect()
