@@ -47,6 +47,8 @@ def handle_event(d: dict):
 
                     if d['name'] == 'JOIN':
                         sid.joined_guilds.append(d['guild_id'])
+                    elif d['name'] == 'DELETE':
+                        sid.joined_guilds.remove(d['guild_id'])
 
     elif d['type'] == 3:
         d['data']['t'] = f'CHANNEL_{str(d["name"])}' if not d['is_message'] else f'MESSAGE_{str(d["name"])}'
