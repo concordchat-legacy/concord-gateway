@@ -1,5 +1,4 @@
 import os
-import datetime
 import dotenv
 from typing import Any
 from cassandra.cqlengine import connection, models, columns, usertype, management

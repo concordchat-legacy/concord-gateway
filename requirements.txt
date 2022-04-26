@@ -3,3 +3,5 @@ uvloop
 websockets
 python-dotenv
 aioredis[hiredis]
+cassandra-driver
+itsdangerous
