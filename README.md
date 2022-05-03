@@ -1,5 +1,5 @@
 # Blackbird
-Blackbird is Concords fast Core WebSocket API, made for scalability
+Blackbird is Reduxs fast Core WebSocket API, made for scalability
 
 # Deploying in Production
 In production we **really** recommend using a load balancer alongside a kubernetes cluster,
