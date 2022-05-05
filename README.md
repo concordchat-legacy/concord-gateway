@@ -1,8 +1,5 @@
-# Blackbird
-Blackbird is Reduxs fast Core WebSocket API, made for scalability
+# Redix
+Fast WebSocket Frontend for Concord.
 
-# Deploying in Production
-In production we **really** recommend using a load balancer alongside a kubernetes cluster,
-for example a websocket connection can max have on most languages about 10,000/15,000 connections 
-per kubernetes node while still being "*stable*" (thinking this is a echo application),
-Blackbird can only handle about 5,000 connections while being minimally stable.
+# v4
+Currently Redix is undergoing private maintainence of v4.0.0, this version makes Redix faster and more scalable.
