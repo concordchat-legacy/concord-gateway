@@ -10,7 +10,7 @@ import dotenv
 
 from gateway.core import ws_handler
 from gateway.db import connect
-from gateway.incoming import start
+from gateway.receiver import start
 
 loop = asyncio.new_event_loop()
 logging.basicConfig(level=logging.DEBUG)

@@ -8,6 +8,8 @@ import dotenv
 import orjson
 import redis.asyncio as redis
 
+from gateway.db import Presence
+
 from .alive import sessions
 
 dotenv.load_dotenv()
@@ -102,6 +104,9 @@ def handle_event(d: dict):
         for sid in sessions:
             if sid._user['id'] == d['user_id']:
                 guilds = sid.joined_guilds
+                sid.presence = Presence.objects(
+                    Presence.user_id == sid._user['id']
+                ).get()
                 break
 
         for sid in sessions:
