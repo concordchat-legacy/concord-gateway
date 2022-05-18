@@ -1,14 +1,27 @@
+# Copyright 2021 Concord, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import asyncio
-import sys
-import websockets.server
-import os
-import http
-import dotenv
 import logging
-import orjson
-from server.redis_pubsub import start
-from server.core import ws_handler
-from server.db import connect
+import os
+import sys
+
+import aiohttp.web as aiohttp
+import dotenv
+
+from gateway.core import ws_handler
+from gateway.db import connect
+from gateway.incoming import start
 
 loop = asyncio.new_event_loop()
 logging.basicConfig(level=logging.DEBUG)
@@ -22,25 +35,18 @@ except (ImportError, ModuleNotFoundError):
     pass
 
 
-async def process_request(path, head):
-    if path == '/__development/ping':
-        return http.HTTPStatus.OK, [], orjson.dumps({'message': 'pong!', 'code': 0})
-
-
 async def startup():
-    await websockets.server.serve(
-        ws_handler=ws_handler,
-        host='0.0.0.0',
-        port=int(os.getenv('port', 20699)),
-        ping_interval=4,
-        ping_timeout=45,
-        process_request=process_request,
-    )
     await start()
-    print('Connected to redis, now connecting to cassandra', file=sys.stderr)
-    connect()
-    f = asyncio.Future()
-    await f
 
-
-asyncio.run(startup())
+connect()
+app = aiohttp.Application(debug=True)
+app.add_routes([aiohttp.get('/', ws_handler)])
+loop = asyncio.new_event_loop()
+loop.create_task(startup())
+aiohttp.run_app(
+    app=app,
+    host='0.0.0.0',
+    port=int(os.getenv('PORT'), 5000),
+    loop=loop,
+)
+loop.run_forever()

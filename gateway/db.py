@@ -1,8 +1,23 @@
+# Copyright 2021 Concord, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import os
-import dotenv
+from time import time
 from typing import Any
-from cassandra.cqlengine import connection, models, columns, usertype, management
+
+import dotenv
 from cassandra.auth import PlainTextAuthProvider
+from cassandra.cqlengine import columns, connection, management, models, usertype
 
 dotenv.load_dotenv()
 auth_provider = PlainTextAuthProvider(
@@ -13,10 +28,12 @@ auth_provider = PlainTextAuthProvider(
 def connect():
     try:
         if os.getenv('safe', 'false') == 'true':
-            cloud = {'secure_connect_bundle': os.getcwd() + r'/server/static/bundle.zip'}
+            cloud = {
+                'secure_connect_bundle': os.getcwd() + r'/gateway/static/bundle.zip'
+            }
             connection.setup(
                 [],
-                'concord',
+                'airbus',
                 cloud=cloud,
                 auth_provider=auth_provider,
                 connect_timeout=200,
@@ -24,36 +41,25 @@ def connect():
         else:
             connection.setup(
                 [],
-                'concord',
+                'airbus',
                 auth_provider=auth_provider,
                 connect_timeout=200,
             )
+        connection.get_session().execute('USE airbus;')
     except:
         connect()
 
 
-class Button(usertype.UserType):
-    label = columns.Text()
-    url = columns.Text()
-
-
-class Activity(usertype.UserType):
-    name = columns.Text()
-    type = columns.Integer()
-    url = columns.Text(default=None)
-    created_at = columns.DateTime()
-    emoji = columns.Text()
-    buttons = columns.List(columns.UserDefinedType(Button))
-
-
 class Presence(models.Model):
-    __options__ = {'gc_grace_seconds': 86400}
-    id = columns.BigInt(primary_key=True)
-    since = columns.Integer(default=None)
-    activity = columns.UserDefinedType(Activity)
+    __options__ = {'gc_grace_seconds': 43200}
+    user_id = columns.BigInt(primary_key=True)
+    since = columns.Float(default=time)
     status = columns.Text(default='offline')
     afk = columns.Boolean(default=False)
-    no_online = columns.Boolean(default=False)
+    description = columns.Text(max_length=40, default='')
+    bold = columns.Text(max_length=6, default='')
+    type = columns.Integer(default=0)
+    stay_offline = columns.Boolean(default=False)
 
 
 def to_dict(model: models.Model) -> dict:
@@ -61,12 +67,7 @@ def to_dict(model: models.Model) -> dict:
     ret = dict(initial)
 
     for name, value in initial:
-        if isinstance(
-            value,
-            (
-                usertype.UserType,
-                models.Model
-            )):
+        if isinstance(value, (usertype.UserType, models.Model)):
             # things like member objects or embeds can have usertypes 3/4 times deep
             # there shouldnt be a recursion problem though
             value = dict(value.items())
@@ -87,7 +88,7 @@ def to_dict(model: models.Model) -> dict:
                     set_values.append(to_dict(v.items()))
                 else:
                     set_values.append(v)
-            
+
             ret[name] = set_values
 
         if name == 'id' or name.endswith('_id') and len(str(value)) > 14:
@@ -101,5 +102,3 @@ def to_dict(model: models.Model) -> dict:
 if __name__ == '__main__':
     connect()
     management.sync_table(Presence)
-    management.sync_type('concord', Activity)
-    management.sync_type('concord', Button)

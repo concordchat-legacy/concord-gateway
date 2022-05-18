@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: concord-gateway
+spec:
+  replicas: 5
+  containers:
+    - name: concord-gateway-1
+      image: gateway:latest
+      imagePullPolicy: Never
+      restartPolicy: Always
+      ports:
+        - name: websocket
+          containerPort: 5000

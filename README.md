@@ -1,5 +1,6 @@
-# Redix
-Fast WebSocket Frontend for Concord.
+# Gateway
+Concord Notification Service.
 
-# v4
-Currently Redix is undergoing private maintainence of v4.0.0, this version makes Redix faster and more scalable.
+## To Do
+
+- Kubernetes Config

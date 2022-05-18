@@ -2,6 +2,6 @@ orjson
 uvloop
 websockets
 python-dotenv
-aioredis[hiredis]
+redis==4.2.2
 cassandra-driver
 itsdangerous

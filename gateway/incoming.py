@@ -1,8 +1,24 @@
+# Copyright 2021 Concord, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import asyncio
-import aioredis as redis
 import os
+import sys
+
 import dotenv
 import orjson
+import redis.asyncio as redis
+
 from .alive import sessions
 
 dotenv.load_dotenv()
@@ -23,6 +39,11 @@ def handle_event(d: dict):
         d = orjson.loads(d['data'])
     except KeyError:
         return
+
+    print(
+        f'Processing Data for event {str(d["data"]["t"])}: {str(d["data"])}',
+        file=sys.stderr,
+    )
 
     if d['type'] == 1:
         d['data']['t'] = f'USER_{str(d["name"])}'
@@ -49,7 +70,11 @@ def handle_event(d: dict):
                         sid.joined_guilds.remove(d['guild_id'])
 
     elif d['type'] == 3:
-        d['data']['t'] = f'CHANNEL_{str(d["name"])}' if not d['is_message'] else f'MESSAGE_{str(d["name"])}'
+        d['data']['t'] = (
+            f'CHANNEL_{str(d["name"])}'
+            if not d['is_message']
+            else f'MESSAGE_{str(d["name"])}'
+        )
         if d.get('guild_id'):
             for sid in sessions:
                 if d['guild_id'] in sid.joined_guilds:
@@ -67,7 +92,6 @@ def handle_event(d: dict):
                     if sid._user['id'] == recipient['id']:
                         if sid.intents.direct_messages:
                             asyncio.create_task(sid.send(d['data']))
-
 
     elif d['type'] == 5:
         for sid in sessions:
