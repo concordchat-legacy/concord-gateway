@@ -92,7 +92,7 @@ class Connection:
         for guild in guilds:
             self.joined_guilds.append(guild['id'])
             if self.intents.guilds:
-                await self.send(guild)
+                await self.send({'t': 'GUILD_AVAILABLE', 'd': guild})
 
         del guilds
         del objs
@@ -153,7 +153,7 @@ class Connection:
 
     async def ready(self):
         await self.send(
-            self._user
+            {'t': 'READY', 'd': self._user}
         )
 
         try:
